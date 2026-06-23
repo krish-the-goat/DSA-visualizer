@@ -1,21 +1,30 @@
+<div align="center">
+
 # 📊 DSA Visualizer + AI Explainer
 
-A premium, interactive Data Structures & Algorithms visualizer built with Streamlit. Step through sorting algorithms, tree traversals, and graph traversals with real-time visualizations, pseudo-code highlighting, and AI-powered explanations.
+**An interactive Data Structures & Algorithms visualizer with step-by-step execution, real-time pseudo-code highlighting, and AI-powered explanations.**
 
-![Python](https://img.shields.io/badge/Python-3.9+-blue?style=flat-square&logo=python)
-![Streamlit](https://img.shields.io/badge/Streamlit-1.35+-red?style=flat-square&logo=streamlit)
-![Gemini AI](https://img.shields.io/badge/Gemini_AI-2.5_Flash-purple?style=flat-square&logo=google)
+[![Python](https://img.shields.io/badge/Python-3.9+-3776ab?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
+[![Streamlit](https://img.shields.io/badge/Streamlit-1.35+-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)](https://streamlit.io)
+[![Gemini AI](https://img.shields.io/badge/Gemini_AI-2.5_Flash-8E75B2?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev)
+[![License](https://img.shields.io/badge/License-MIT-22c55e?style=for-the-badge)](LICENSE)
+
+[**Live Demo**](#-quick-start) · [**Features**](#-features) · [**Getting Started**](#-quick-start) · [**Contributing**](#-contributing)
+
+</div>
 
 ---
 
 ## ✨ Features
 
 ### 🔢 Sorting Algorithms
-- **Bubble Sort** — Compare adjacent elements, swap if out of order
-- **Merge Sort** — Divide and conquer with recursive merging
-- **Quick Sort** — Partition around a pivot element
-- **Insertion Sort** — Build sorted array one element at a time
-- **Selection Sort** — Find minimum and place at correct position
+| Algorithm | Technique | Time Complexity |
+|-----------|-----------|-----------------|
+| **Bubble Sort** | Compare adjacent elements, swap if out of order | O(n²) |
+| **Merge Sort** | Divide and conquer with recursive merging | O(n log n) |
+| **Quick Sort** | Partition around a pivot element | O(n log n) avg |
+| **Insertion Sort** | Build sorted array one element at a time | O(n²) |
+| **Selection Sort** | Find minimum and place at correct position | O(n²) |
 
 ### 🌳 Tree Traversals
 - **BFS (Level Order)** — Visit nodes level by level using a queue
@@ -25,20 +34,28 @@ A premium, interactive Data Structures & Algorithms visualizer built with Stream
 - **BFS** — Explore neighbors first using a queue
 - **DFS** — Explore as deep as possible before backtracking
 
-### 🎨 Premium UI
-- Dark theme with glassmorphism and gradient accents
-- Animated chart visualizations with glow effects
+### 🎨 Premium Dark UI
+- Glassmorphism cards with backdrop blur
+- Gradient accents & smooth micro-animations
+- Custom typography (Inter + JetBrains Mono)
+- Animated bar charts with glow effects for sorting
+- Interactive tree and graph visualizations with node highlighting
 - Step-by-step captions explaining each operation
-- Pseudo-code panel with live line highlighting
 
-### 🤖 AI Explainer (Gemini)
+### 📝 Live Pseudo-Code
+- Real-time pseudo-code panel for every algorithm
+- Current executing line is highlighted as you step through
+- Supports all 9 algorithms (5 sorting + 2 tree + 2 graph)
+
+### 🤖 AI Explainer (Gemini 2.5 Flash)
 - One-click AI explanation for any algorithm run
-- Powered by Google Gemini 2.5 Flash
-- Rate-limited to preserve free API quota
+- Explains how the algorithm works, step-by-step walkthrough, time complexity & real-life use case
+- Rate-limited (10 calls/session) to preserve free API quota
+- Prompt injection protection via input sanitization
 
-### ▶️ Auto-Play
+### ▶️ Auto-Play Mode
 - Auto-advance through steps with adjustable speed
-- Slow / Normal / Fast playback modes
+- **Slow** (1s) / **Normal** (0.5s) / **Fast** (0.2s) playback
 - Pause/resume at any time
 
 ---
@@ -47,94 +64,135 @@ A premium, interactive Data Structures & Algorithms visualizer built with Stream
 
 | Technology | Purpose |
 |------------|---------|
-| **Streamlit** | Web framework and UI |
-| **Matplotlib** | Chart and graph rendering |
-| **Google Gemini AI** | Algorithm explanations |
-| **Python 3.9+** | Core language |
+| [**Streamlit**](https://streamlit.io) | Web framework & interactive UI |
+| [**Matplotlib**](https://matplotlib.org) | Chart rendering (bar, tree, graph) |
+| [**Google GenAI**](https://ai.google.dev) | Gemini 2.5 Flash for AI explanations |
+| [**Python 3.9+**](https://python.org) | Core language |
 
 ---
 
 ## 🚀 Quick Start
 
-### 1. Clone the repository
+### Option 1 — GitHub Codespaces (Fastest)
+
+Click the button below to launch instantly in your browser — no local setup needed:
+
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/krish-the-goat/DSA-visualizer)
+
+> The devcontainer auto-installs dependencies and starts the Streamlit server on port `8501`.
+
+### Option 2 — Local Setup
+
+#### 1. Clone the repository
 ```bash
-git clone https://github.com/yourusername/dsa-visualizer.git
-cd dsa-visualizer
+git clone https://github.com/krish-the-goat/DSA-visualizer.git
+cd DSA-visualizer
 ```
 
-### 2. Create a virtual environment
+#### 2. Create a virtual environment
 ```bash
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 ```
 
-### 3. Install dependencies
+#### 3. Install dependencies
 ```bash
 pip install -r requirements.txt
 ```
 
-### 4. Add your Gemini API key
-Get a free API key from [Google AI Studio](https://aistudio.google.com/app/apikey), then edit `.streamlit/secrets.toml`:
-```toml
-GEMINI_API_KEY = "your_actual_api_key_here"
-```
+#### 4. Add your Gemini API key *(optional — app works without it)*
+Get a free API key from [Google AI Studio](https://aistudio.google.com/app/apikey), then:
 
-Or set it as an environment variable:
 ```bash
-export GEMINI_API_KEY="your_actual_api_key_here"
+# Option A: Environment variable
+export GEMINI_API_KEY="your_api_key_here"
+
+# Option B: Streamlit secrets
+mkdir -p .streamlit
+echo 'GEMINI_API_KEY = "your_api_key_here"' > .streamlit/secrets.toml
 ```
 
-### 5. Run the app
+#### 5. Run the app
 ```bash
 streamlit run app.py
 ```
 
-The app will open at `http://localhost:8501`.
+The app will open at **http://localhost:8501** 🎉
 
 ---
 
 ## 📁 Project Structure
 
 ```
-dsa-visualizer/
-├── app.py                  # Main Streamlit application
-├── custom_theme.py         # Premium dark theme CSS injection
-├── security.py             # Input sanitization & rate limiting
+DSA-visualizer/
+├── app.py                  # Main Streamlit application (routing, layout, state)
+├── custom_theme.py         # Premium dark CSS theme with glassmorphism
+├── security.py             # Input sanitization, rate limiting, prompt safety
 ├── requirements.txt        # Python dependencies
-├── README.md               # This file
-├── .gitignore              # Git ignore rules
+├── README.md
+├── .gitignore
+│
 ├── .streamlit/
-│   ├── config.toml         # Streamlit server configuration
+│   ├── config.toml         # Streamlit server & theme configuration
 │   └── secrets.toml        # API keys (gitignored)
+│
+├── .devcontainer/
+│   └── devcontainer.json   # GitHub Codespaces / VS Code container config
+│
 ├── algorithms/
-│   ├── sorting.py          # Sorting algorithms (5 algorithms)
-│   ├── trees.py            # Tree traversal algorithms
-│   └── graphs.py           # Graph traversal algorithms
+│   ├── sorting.py          # Bubble, Merge, Quick, Insertion, Selection Sort
+│   ├── trees.py            # Tree BFS (Level Order) & DFS (Preorder)
+│   └── graphs.py           # Graph BFS & DFS with adjacency list input
+│
 ├── visualizer/
-│   ├── chart_utils.py      # Matplotlib chart rendering
-│   └── pseudocode.py       # Pseudo-code display with highlighting
+│   ├── chart_utils.py      # Matplotlib chart rendering (bar, tree, graph)
+│   └── pseudocode.py       # Pseudo-code display with live line highlighting
+│
 └── ai/
-    └── explainer.py        # Gemini AI integration
+    └── explainer.py        # Gemini AI integration with rate limiting
 ```
 
 ---
 
 ## 🔒 Security
 
-- **Input sanitization**: All user inputs are validated and sanitized before processing
-- **Rate limiting**: AI API calls are rate-limited per session
-- **XSRF protection**: Enabled via Streamlit server config
-- **CORS disabled**: Cross-origin requests are blocked
-- **No stack trace leaks**: Errors show user-friendly messages only
-- **Environment-based secrets**: API keys can be set via environment variables
-- **Secrets gitignored**: `.streamlit/secrets.toml` is excluded from version control
+| Feature | Details |
+|---------|---------|
+| **Input Sanitization** | All user inputs validated via regex before processing |
+| **Rate Limiting** | AI API calls capped at 10/session |
+| **XSRF Protection** | Enabled via Streamlit server config |
+| **Prompt Injection Guard** | User data escaped & truncated before AI prompts |
+| **No Stack Traces** | Errors show user-friendly messages only |
+| **Secrets Gitignored** | `.streamlit/secrets.toml` excluded from version control |
+| **Array Size Limits** | Max 20 elements, values in [-9999, 9999] |
+| **Graph Node Limits** | Max 15 nodes, alphanumeric labels only |
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Here's how:
+
+1. **Fork** the repository
+2. **Create** a feature branch (`git checkout -b feature/amazing-feature`)
+3. **Commit** your changes (`git commit -m 'Add amazing feature'`)
+4. **Push** to the branch (`git push origin feature/amazing-feature`)
+5. **Open** a Pull Request
 
 ---
 
 ## 📝 License
 
-This project is open source. Feel free to use, modify, and distribute.
+This project is open source and available under the [MIT License](LICENSE).
 
 ---
 
-Made with ❤️ using Streamlit + Gemini AI
+<div align="center">
+
+**Made with ❤️ by [Krish](https://github.com/krish-the-goat)**
+
+*Built with Streamlit + Gemini AI*
+
+⭐ Star this repo if you found it useful!
+
+</div>
