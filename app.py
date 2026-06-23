@@ -185,21 +185,20 @@ if mode == "Sorting":
         ["Bubble Sort", "Merge Sort", "Quick Sort", "Insertion Sort", "Selection Sort"],
     )
 
+    def _randomize_array():
+        st.session_state.sort_input = ", ".join(str(x) for x in generate_random_array())
+
     col_input, col_random = st.columns([4, 1])
     with col_input:
-        default_val = st.session_state.get("sort_input", "5, 2, 8, 1, 9")
         user_input = st.text_input(
             "Enter array (comma-separated numbers):",
-            value=default_val,
+            value="5, 2, 8, 1, 9",
             key="sort_input",
         )
     with col_random:
         st.write("")  # spacing
         st.write("")
-        if st.button("🎲 Random", key="btn_random_sort"):
-            random_arr = generate_random_array()
-            st.session_state.sort_input = ", ".join(str(x) for x in random_arr)
-            st.rerun()
+        st.button("🎲 Random", key="btn_random_sort", on_click=_randomize_array)
 
     if st.button("▶️ Sort", type="primary"):
         try:
