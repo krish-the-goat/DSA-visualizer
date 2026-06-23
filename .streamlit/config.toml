@@ -1,0 +1,21 @@
+[server]
+# Enable Cross-Site Request Forgery protection
+enableXsrfProtection = true
+
+# Limit file upload size (MB) — we don't need uploads
+maxUploadSize = 1
+
+# Headless mode for production deployment
+headless = true
+
+[browser]
+# Disable telemetry / usage stats collection
+gatherUsageStats = false
+
+[theme]
+# Dark theme base
+base = "dark"
+primaryColor = "#6c5ce7"
+backgroundColor = "#0f0f1a"
+secondaryBackgroundColor = "#1a1a2e"
+textColor = "#e0e0e0"

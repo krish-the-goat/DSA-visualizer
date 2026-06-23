@@ -1,8 +1,12 @@
 """
-Binary Tree traversal logic — BFS (level order) aur DFS (preorder).
-Node IDs ek hi central function (_assign_ids) se aate hain,
-taaki positions, edges, aur traversal steps mein SAME id consistently
-use ho.
+Binary Tree traversal logic — BFS (level order) and DFS (preorder).
+Node IDs are assigned via a central function (_assign_ids) to ensure
+consistent IDs across positions, edges, and traversal steps.
+
+Each step dict contains:
+  - visited_id, visited_value, visited_so_far (existing)
+  - caption: human-readable step description
+  - pseudo_line: int for pseudo-code highlighting
 """
 
 
@@ -14,6 +18,7 @@ class TreeNode:
 
 
 def build_tree_from_list(values):
+    """Builds a binary tree from a level-order list of values."""
     if not values or values[0] is None:
         return None
 
@@ -38,6 +43,7 @@ def build_tree_from_list(values):
 
 
 def _assign_ids(root):
+    """Assigns unique integer IDs to nodes via BFS traversal."""
     if root is None:
         return {}
 
@@ -59,6 +65,7 @@ def _assign_ids(root):
 
 
 def tree_to_positions(root, node_to_id):
+    """Computes (x, y) positions for each node for visualization."""
     if root is None:
         return {}, []
 
@@ -103,7 +110,23 @@ def tree_to_positions(root, node_to_id):
     return positions, edges
 
 
+def _get_children_desc(node):
+    """Returns a description of a node's children for captions."""
+    children = []
+    if node.left:
+        children.append(str(node.left.value))
+    if node.right:
+        children.append(str(node.right.value))
+    if children:
+        return f"Children: [{', '.join(children)}]"
+    return "No children (leaf node)"
+
+
 def bfs_traversal(root):
+    """
+    BFS (level-order) traversal with step-by-step tracking.
+    Returns (steps, positions, edges).
+    """
     if root is None:
         return [], {}, []
 
@@ -114,6 +137,7 @@ def bfs_traversal(root):
     visited_so_far = []
     queue = [root]
     visited_set = set()
+    level_map = {id(root): 0}
 
     while queue:
         node = queue.pop(0)
@@ -124,21 +148,36 @@ def bfs_traversal(root):
         visited_set.add(nid)
         visited_so_far.append(nid)
 
+        level = level_map.get(id(node), 0)
+        children_desc = _get_children_desc(node)
+        queue_preview = [n.value for n in queue]
+
         steps.append({
             "visited_id": nid,
             "visited_value": node.value,
-            "visited_so_far": visited_so_far.copy()
+            "visited_so_far": visited_so_far.copy(),
+            "caption": (
+                f"Visiting node {node.value} (Level {level}). "
+                f"{children_desc}. Queue: {queue_preview if queue_preview else '[]'}"
+            ),
+            "pseudo_line": 4,
         })
 
         if node.left:
             queue.append(node.left)
+            level_map[id(node.left)] = level + 1
         if node.right:
             queue.append(node.right)
+            level_map[id(node.right)] = level + 1
 
     return steps, positions, edges
 
 
 def dfs_traversal(root):
+    """
+    DFS (preorder) traversal with step-by-step tracking.
+    Returns (steps, positions, edges).
+    """
     if root is None:
         return [], {}, []
 
@@ -147,17 +186,41 @@ def dfs_traversal(root):
 
     steps = []
     visited_so_far = []
+    depth_map = {id(root): 0}
 
     def _dfs(node):
         if node is None:
             return
         nid = node_to_id[id(node)]
         visited_so_far.append(nid)
+
+        depth = depth_map.get(id(node), 0)
+        children_desc = _get_children_desc(node)
+
+        next_action = ""
+        if node.left:
+            next_action = f"Going deeper to left child {node.left.value}."
+            depth_map[id(node.left)] = depth + 1
+        elif node.right:
+            next_action = f"No left child. Going to right child {node.right.value}."
+            depth_map[id(node.right)] = depth + 1
+        else:
+            next_action = "Leaf node — backtracking."
+
+        if node.right and node.left:
+            depth_map[id(node.right)] = depth + 1
+
         steps.append({
             "visited_id": nid,
             "visited_value": node.value,
-            "visited_so_far": visited_so_far.copy()
+            "visited_so_far": visited_so_far.copy(),
+            "caption": (
+                f"Visiting node {node.value} (Depth {depth}). "
+                f"{children_desc}. {next_action}"
+            ),
+            "pseudo_line": 3,
         })
+
         _dfs(node.left)
         _dfs(node.right)
 

@@ -1,154 +1,307 @@
 """
-Main Streamlit app — entry point.
-Teen modes: Sorting (Bubble/Merge/Quick), Tree (BFS/DFS), Graph (BFS/DFS).
-- Next/Previous se manual step control
-- AI explanation SIRF EK BAAR — button click pe, har step pe nahi
+Main Streamlit app — DSA Visualizer + AI Explainer.
+Modes: Sorting (Bubble/Merge/Quick/Insertion/Selection), Tree (BFS/DFS), Graph (BFS/DFS).
+Features: Step-by-step navigation, auto-play, pseudo-code highlighting, AI explanation.
 """
 
+import time
 import streamlit as st
-from algorithms.sorting import bubble_sort, merge_sort, quick_sort
-from algorithms.trees import build_tree_from_list, bfs_traversal as tree_bfs, dfs_traversal as tree_dfs
-from algorithms.graphs import build_graph_positions, get_edges, bfs_traversal as graph_bfs, dfs_traversal as graph_dfs
+import matplotlib.pyplot as plt
+
+from custom_theme import inject_custom_css
+from security import (
+    sanitize_array_input,
+    sanitize_tree_input,
+    sanitize_graph_input,
+    sanitize_node_label,
+    check_ai_rate_limit,
+    get_ai_calls_remaining,
+)
+from algorithms.sorting import (
+    bubble_sort, merge_sort, quick_sort,
+    insertion_sort, selection_sort,
+    generate_random_array,
+)
+from algorithms.trees import (
+    build_tree_from_list,
+    bfs_traversal as tree_bfs,
+    dfs_traversal as tree_dfs,
+)
+from algorithms.graphs import (
+    build_graph_positions,
+    get_edges,
+    bfs_traversal as graph_bfs,
+    dfs_traversal as graph_dfs,
+)
 from visualizer.chart_utils import create_bar_chart, create_tree_chart, create_graph_chart
+from visualizer.pseudocode import render_pseudocode
 from ai.explainer import explain_algorithm
 
-MAX_ARRAY_SIZE = 15
 
-st.set_page_config(page_title="DSA Visualizer + AI Explainer", page_icon="📊", layout="wide")
+# ─── Page Config ──────────────────────────────────────────────────────────────
+
+st.set_page_config(
+    page_title="DSA Visualizer — Learn Algorithms Visually",
+    page_icon="📊",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
+inject_custom_css()
+
 st.title("📊 DSA Visualizer + AI Explainer")
 
-mode = st.radio("Kya visualize karna hai?", ["Sorting", "Tree Traversal", "Graph Traversal"], horizontal=True)
+mode = st.radio(
+    "What do you want to visualize?",
+    ["Sorting", "Tree Traversal", "Graph Traversal"],
+    horizontal=True,
+)
+
+
+# ─── Sidebar ──────────────────────────────────────────────────────────────────
 
 with st.sidebar:
     st.header("⚙️ Settings")
-    ai_enabled = st.checkbox("🤖 AI Explainer chalu rakho", value=True)
+    ai_enabled = st.checkbox("🤖 Enable AI Explainer", value=True)
 
+    if ai_enabled:
+        remaining = get_ai_calls_remaining()
+        st.markdown(
+            f'<span class="rate-badge">AI calls remaining: {remaining}</span>',
+            unsafe_allow_html=True,
+        )
+
+    st.divider()
+
+    st.subheader("▶️ Playback")
+    speed_label = st.select_slider(
+        "Auto-play speed",
+        options=["Slow", "Normal", "Fast"],
+        value="Normal",
+    )
+    speed_map = {"Slow": 1.0, "Normal": 0.5, "Fast": 0.2}
+    play_speed = speed_map[speed_label]
+
+    st.divider()
+
+    if st.button("🔄 Reset Everything", use_container_width=True):
+        for key in list(st.session_state.keys()):
+            del st.session_state[key]
+        st.rerun()
+
+
+# ─── Helper Functions ─────────────────────────────────────────────────────────
 
 def render_navigation(total_steps):
+    """Renders Previous / Auto Play / Next navigation controls."""
     current = st.session_state.current_step
-    nav_col1, nav_col2, _ = st.columns([1, 1, 3])
-    with nav_col1:
-        if st.button("◀️ Previous", disabled=(current == 0)):
+    is_playing = st.session_state.get("auto_playing", False)
+
+    col_prev, col_play, col_next, col_info = st.columns([1, 1, 1, 2])
+
+    with col_prev:
+        if st.button("◀️ Previous", disabled=(current == 0 or is_playing), key="btn_prev"):
             st.session_state.current_step -= 1
             st.rerun()
-    with nav_col2:
-        if st.button("Next ▶️", disabled=(current == total_steps - 1)):
+
+    with col_play:
+        if is_playing:
+            if st.button("⏸️ Pause", key="btn_pause"):
+                st.session_state.auto_playing = False
+                st.rerun()
+        else:
+            if st.button("▶️ Auto Play", disabled=(current >= total_steps - 1), key="btn_play"):
+                st.session_state.auto_playing = True
+                st.rerun()
+
+    with col_next:
+        if st.button("Next ▶️", disabled=(current >= total_steps - 1 or is_playing), key="btn_next"):
             st.session_state.current_step += 1
             st.rerun()
-    st.caption(f"Step {current + 1} of {total_steps}")
+
+    with col_info:
+        progress = (current + 1) / total_steps
+        st.progress(progress)
+        st.markdown(
+            f'<div class="step-progress">Step {current + 1} of {total_steps}</div>',
+            unsafe_allow_html=True,
+        )
 
 
-def render_ai_panel():
-    st.subheader("🤖 AI Explanation")
-    if not ai_enabled:
-        st.caption("AI Explainer band hai (sidebar se chalu karo).")
-        return
-    if "ai_explanation" in st.session_state and st.session_state.ai_explanation:
-        st.info(st.session_state.ai_explanation)
-    else:
-        st.caption("Algorithm run karo — AI explanation yahan dikhegi.")
+def render_step_caption(caption: str):
+    """Renders the step caption in a styled card."""
+    st.markdown(
+        f'<div class="step-caption animate-fade">'
+        f'<span class="step-icon">💡</span>{caption}'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
 
+
+def render_right_panel(algorithm_name: str, pseudo_line: int):
+    """Renders the tabbed right panel with Pseudo Code and AI Explanation."""
+    tab_pseudo, tab_ai = st.tabs(["📝 Pseudo Code", "🤖 AI Explanation"])
+
+    with tab_pseudo:
+        render_pseudocode(algorithm_name, pseudo_line)
+
+    with tab_ai:
+        if not ai_enabled:
+            st.caption("AI Explainer is disabled. Enable it in the sidebar.")
+        elif "ai_explanation" in st.session_state and st.session_state.ai_explanation:
+            st.markdown(
+                f'<div class="ai-card">{st.session_state.ai_explanation}</div>',
+                unsafe_allow_html=True,
+            )
+        else:
+            st.caption("Run an algorithm to see the AI explanation here.")
+
+
+def handle_auto_play(total_steps):
+    """Handles auto-play logic — advances one step and reruns."""
+    if st.session_state.get("auto_playing", False):
+        current = st.session_state.current_step
+        if current < total_steps - 1:
+            time.sleep(play_speed)
+            st.session_state.current_step += 1
+            st.rerun()
+        else:
+            st.session_state.auto_playing = False
+
+
+def display_chart(fig):
+    """Displays a matplotlib figure and properly closes it."""
+    st.pyplot(fig)
+    plt.close(fig)
+
+
+# ─── Sorting Mode ─────────────────────────────────────────────────────────────
 
 if mode == "Sorting":
-    st.write("Algorithm select karo, array do, aur Next/Previous se step-by-step sorting dekho.")
+    st.write("Select an algorithm, enter an array, and step through the sorting process.")
 
-    algorithm = st.selectbox("Algorithm choose karo:", ["Bubble Sort", "Merge Sort", "Quick Sort"])
-    user_input = st.text_input("Array enter karo (comma se separate karo):", value="5, 2, 8, 1, 9")
+    algorithm = st.selectbox(
+        "Choose algorithm:",
+        ["Bubble Sort", "Merge Sort", "Quick Sort", "Insertion Sort", "Selection Sort"],
+    )
 
-    if st.button("▶️ Sort Karo", type="primary"):
-        if not user_input.strip():
-            st.warning("Pehle array enter karo.")
-        else:
-            try:
-                arr = [int(x.strip()) for x in user_input.split(",") if x.strip() != ""]
-                if len(arr) < 2:
-                    st.warning("Kam se kam 2 numbers daalo.")
-                elif len(arr) > MAX_ARRAY_SIZE:
-                    st.warning(f"Max {MAX_ARRAY_SIZE} numbers allowed.")
-                else:
-                    if algorithm == "Bubble Sort":
-                        steps = bubble_sort(arr)
-                    elif algorithm == "Merge Sort":
-                        steps = merge_sort(arr)
-                    else:
-                        steps = quick_sort(arr)
+    col_input, col_random = st.columns([4, 1])
+    with col_input:
+        user_input = st.text_input(
+            "Enter array (comma-separated numbers):",
+            value=st.session_state.get("sort_input_value", "5, 2, 8, 1, 9"),
+            key="sort_input",
+        )
+    with col_random:
+        st.write("")  # spacing
+        st.write("")
+        if st.button("🎲 Random", key="btn_random_sort"):
+            random_arr = generate_random_array()
+            st.session_state.sort_input_value = ", ".join(str(x) for x in random_arr)
+            st.rerun()
 
-                    final_sorted = steps[-1]["array"]
-                    st.session_state.sort_steps = steps
-                    st.session_state.sort_algorithm = algorithm
-                    st.session_state.current_step = 0
-                    st.session_state.active_mode = "Sorting"
+    if st.button("▶️ Sort", type="primary"):
+        try:
+            arr = sanitize_array_input(user_input)
 
-                    if ai_enabled:
-                        with st.spinner("AI explanation generate ho rahi hai..."):
-                            st.session_state.ai_explanation = explain_algorithm(
-                                algorithm_name=algorithm,
-                                input_data=arr,
-                                result=final_sorted
-                            )
-                    else:
-                        st.session_state.ai_explanation = ""
+            algo_map = {
+                "Bubble Sort": bubble_sort,
+                "Merge Sort": merge_sort,
+                "Quick Sort": quick_sort,
+                "Insertion Sort": insertion_sort,
+                "Selection Sort": selection_sort,
+            }
+            steps = algo_map[algorithm](arr)
+            final_sorted = steps[-1]["array"]
 
-            except ValueError:
-                st.error("Sirf numbers daalo, comma se separate karke. Example: 5, 2, 8, 1, 9")
+            st.session_state.sort_steps = steps
+            st.session_state.sort_algorithm = algorithm
+            st.session_state.current_step = 0
+            st.session_state.active_mode = "Sorting"
+            st.session_state.auto_playing = False
+
+            if ai_enabled and check_ai_rate_limit():
+                with st.spinner("Generating AI explanation..."):
+                    st.session_state.ai_explanation = explain_algorithm(
+                        algorithm_name=algorithm,
+                        input_data=arr,
+                        result=final_sorted,
+                    )
+            else:
+                st.session_state.ai_explanation = ""
+
+        except ValueError as e:
+            st.error(str(e))
 
     if st.session_state.get("active_mode") == "Sorting" and "sort_steps" in st.session_state:
         steps = st.session_state.sort_steps
         current = st.session_state.current_step
         step_data = steps[current]
+
         st.divider()
+
         col1, col2 = st.columns([2, 1])
+
         with col1:
             fig = create_bar_chart(step_data["array"], step_data["comparing"], step_data["swapped"])
-            st.pyplot(fig)
+            display_chart(fig)
+            render_step_caption(step_data.get("caption", ""))
             render_navigation(len(steps))
-        with col2:
-            render_ai_panel()
 
+        with col2:
+            render_right_panel(
+                st.session_state.sort_algorithm,
+                step_data.get("pseudo_line", 0),
+            )
+
+        handle_auto_play(len(steps))
+
+
+# ─── Tree Traversal Mode ─────────────────────────────────────────────────────
 
 elif mode == "Tree Traversal":
-    st.write("Tree banao, traversal choose karo, aur Next/Previous se step-by-step dekho.")
+    st.write("Build a tree, choose a traversal type, and step through it.")
 
     traversal_type = st.selectbox("Traversal type:", ["BFS (Level Order)", "DFS (Preorder)"])
     tree_input = st.text_input(
-        "Tree values enter karo (level-order, comma se separate):",
-        value="5, 3, 8, 1, 4, 7, 9"
+        "Enter tree values (level-order, comma-separated):",
+        value="5, 3, 8, 1, 4, 7, 9",
     )
-    st.caption("5 root hai, 3 aur 8 uske children, 1 aur 4 teen ke children, etc.")
+    st.caption("5 is root, 3 and 8 are its children, 1 and 4 are children of 3, etc.")
 
-    if st.button("🌳 Traverse Karo", type="primary"):
+    if st.button("🌳 Traverse", type="primary"):
         try:
-            values = [int(x.strip()) for x in tree_input.split(",") if x.strip() != ""]
-            if len(values) == 0:
-                st.warning("Kam se kam 1 value daalo.")
-            elif len(values) > MAX_ARRAY_SIZE:
-                st.warning(f"Max {MAX_ARRAY_SIZE} values allowed.")
+            values = sanitize_tree_input(tree_input)
+
+            root = build_tree_from_list(values)
+            if traversal_type == "BFS (Level Order)":
+                steps, positions, edges = tree_bfs(root)
+                algo_name = "Tree BFS (Level Order)"
             else:
-                root = build_tree_from_list(values)
-                if traversal_type == "BFS (Level Order)":
-                    steps, positions, edges = tree_bfs(root)
-                else:
-                    steps, positions, edges = tree_dfs(root)
+                steps, positions, edges = tree_dfs(root)
+                algo_name = "Tree DFS (Preorder)"
 
-                traversal_order = [s["visited_value"] for s in steps]
-                st.session_state.tree_steps = steps
-                st.session_state.tree_positions = positions
-                st.session_state.tree_edges = edges
-                st.session_state.current_step = 0
-                st.session_state.active_mode = "Tree Traversal"
+            traversal_order = [s["visited_value"] for s in steps]
+            st.session_state.tree_steps = steps
+            st.session_state.tree_positions = positions
+            st.session_state.tree_edges = edges
+            st.session_state.tree_algorithm = algo_name
+            st.session_state.current_step = 0
+            st.session_state.active_mode = "Tree Traversal"
+            st.session_state.auto_playing = False
 
-                if ai_enabled:
-                    with st.spinner("AI explanation generate ho rahi hai..."):
-                        st.session_state.ai_explanation = explain_algorithm(
-                            algorithm_name=f"Tree {traversal_type}",
-                            input_data=f"Tree nodes (level-order): {values}",
-                            result=f"Traversal order: {traversal_order}"
-                        )
-                else:
-                    st.session_state.ai_explanation = ""
+            if ai_enabled and check_ai_rate_limit():
+                with st.spinner("Generating AI explanation..."):
+                    st.session_state.ai_explanation = explain_algorithm(
+                        algorithm_name=algo_name,
+                        input_data=f"Tree nodes (level-order): {values}",
+                        result=f"Traversal order: {traversal_order}",
+                    )
+            else:
+                st.session_state.ai_explanation = ""
 
-        except ValueError:
-            st.error("Sirf numbers daalo, comma se separate karke.")
+        except ValueError as e:
+            st.error(str(e))
 
     if st.session_state.get("active_mode") == "Tree Traversal" and "tree_steps" in st.session_state:
         steps = st.session_state.tree_steps
@@ -156,75 +309,83 @@ elif mode == "Tree Traversal":
         edges = st.session_state.tree_edges
         current = st.session_state.current_step
         step_data = steps[current]
+
         st.divider()
+
         col1, col2 = st.columns([2, 1])
+
         with col1:
             fig = create_tree_chart(
                 positions, edges,
                 visited_id=step_data["visited_id"],
-                visited_so_far=step_data["visited_so_far"][:-1]
+                visited_so_far=step_data["visited_so_far"][:-1],
             )
-            st.pyplot(fig)
+            display_chart(fig)
+            render_step_caption(step_data.get("caption", ""))
             render_navigation(len(steps))
-        with col2:
-            render_ai_panel()
 
+        with col2:
+            render_right_panel(
+                st.session_state.tree_algorithm,
+                step_data.get("pseudo_line", 0),
+            )
+
+        handle_auto_play(len(steps))
+
+
+# ─── Graph Traversal Mode ────────────────────────────────────────────────────
 
 elif mode == "Graph Traversal":
-    st.write("Graph define karo, traversal choose karo, aur step-by-step dekho.")
+    st.write("Define a graph, choose a traversal type, and step through it.")
 
     traversal_type = st.selectbox("Traversal type:", ["BFS", "DFS"])
-    st.caption("Format: har line mein 'Node: Neighbor1, Neighbor2'")
+    st.caption("Format: each line as 'Node: Neighbor1, Neighbor2'")
     graph_input = st.text_area(
-        "Graph define karo:",
+        "Define your graph:",
         value="A: B, C\nB: A, D\nC: A, D\nD: B, C, E\nE: D",
-        height=150
+        height=150,
     )
     start_node = st.text_input("Start node:", value="A")
 
-    if st.button("🔗 Traverse Karo", type="primary"):
+    if st.button("🔗 Traverse", type="primary"):
         try:
-            graph = {}
-            for line in graph_input.strip().split("\n"):
-                if ":" not in line:
-                    continue
-                node, neighbors_str = line.split(":", 1)
-                node = node.strip()
-                neighbors = [n.strip() for n in neighbors_str.split(",") if n.strip()]
-                graph[node] = neighbors
+            graph = sanitize_graph_input(graph_input)
+            validated_start = sanitize_node_label(start_node)
 
-            if not graph:
-                st.warning("Graph khaali hai — sahi format mein likho.")
-            elif start_node.strip() not in graph:
-                st.warning(f"'{start_node}' graph mein nahi mila.")
+            if validated_start not in graph:
+                st.warning(f"'{validated_start}' not found in the graph.")
             else:
                 positions = build_graph_positions(graph)
                 edges = get_edges(graph)
 
                 if traversal_type == "BFS":
-                    steps = graph_bfs(graph, start_node.strip())
+                    steps = graph_bfs(graph, validated_start)
+                    algo_name = "Graph BFS"
                 else:
-                    steps = graph_dfs(graph, start_node.strip())
+                    steps = graph_dfs(graph, validated_start)
+                    algo_name = "Graph DFS"
 
                 traversal_order = [s["visited_node"] for s in steps]
                 st.session_state.graph_steps = steps
                 st.session_state.graph_positions = positions
                 st.session_state.graph_edges = edges
+                st.session_state.graph_algorithm = algo_name
                 st.session_state.current_step = 0
                 st.session_state.active_mode = "Graph Traversal"
+                st.session_state.auto_playing = False
 
-                if ai_enabled:
-                    with st.spinner("AI explanation generate ho rahi hai..."):
+                if ai_enabled and check_ai_rate_limit():
+                    with st.spinner("Generating AI explanation..."):
                         st.session_state.ai_explanation = explain_algorithm(
-                            algorithm_name=f"Graph {traversal_type}",
-                            input_data=f"Graph nodes: {list(graph.keys())}, Start: {start_node.strip()}",
-                            result=f"Traversal order: {traversal_order}"
+                            algorithm_name=algo_name,
+                            input_data=f"Graph nodes: {list(graph.keys())}, Start: {validated_start}",
+                            result=f"Traversal order: {traversal_order}",
                         )
                 else:
                     st.session_state.ai_explanation = ""
 
-        except Exception:
-            st.error("Graph format galat hai. Example: 'A: B, C'")
+        except ValueError as e:
+            st.error(str(e))
 
     if st.session_state.get("active_mode") == "Graph Traversal" and "graph_steps" in st.session_state:
         steps = st.session_state.graph_steps
@@ -232,15 +393,25 @@ elif mode == "Graph Traversal":
         edges = st.session_state.graph_edges
         current = st.session_state.current_step
         step_data = steps[current]
+
         st.divider()
+
         col1, col2 = st.columns([2, 1])
+
         with col1:
             fig = create_graph_chart(
                 positions, edges,
                 visited_node=step_data["visited_node"],
-                visited_so_far=step_data["visited_so_far"][:-1]
+                visited_so_far=step_data["visited_so_far"][:-1],
             )
-            st.pyplot(fig)
+            display_chart(fig)
+            render_step_caption(step_data.get("caption", ""))
             render_navigation(len(steps))
+
         with col2:
-            render_ai_panel()
+            render_right_panel(
+                st.session_state.graph_algorithm,
+                step_data.get("pseudo_line", 0),
+            )
+
+        handle_auto_play(len(steps))
