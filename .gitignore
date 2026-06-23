@@ -1,18 +1,18 @@
-# API keys aur secrets — kabhi GitHub pe nahi jaane chahiye
+# API keys and secrets — never push to GitHub
 .streamlit/secrets.toml
 
-# Python cache files — zaroorat nahi inki
+# Python cache files
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 
-# Virtual environment — har machine pe alag hota hai
+# Virtual environment
 venv/
 env/
 .venv/
 
-# Mac system file — useless for others
+# Mac system file
 .DS_Store
 
 # Editor files

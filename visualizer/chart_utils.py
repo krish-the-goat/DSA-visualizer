@@ -5,8 +5,6 @@ Memory-safe: figures are created fresh each call with plt.close() in callers.
 """
 
 import matplotlib.pyplot as plt
-import matplotlib.colors as mcolors
-import numpy as np
 
 
 # ─── Color Palette ────────────────────────────────────────────────────────────
@@ -89,10 +87,22 @@ def create_bar_chart(array, comparing=None, swapped=False):
                 )
 
     # Value labels on bars
+    max_val = max(array)
+    min_val = min(array)
+    val_range = max(max_val - min_val, 1)  # Prevent division by zero
+    label_offset = val_range * 0.03
+
     for idx, (bar_obj, val) in enumerate(zip(bars, array)):
+        # Place label above bar for positive, below for negative
+        if val >= 0:
+            label_y = val + label_offset
+            va = "bottom"
+        else:
+            label_y = val - label_offset
+            va = "top"
         ax.text(
-            bar_obj.get_x() + bar_obj.get_width() / 2, bar_obj.get_height() + max(array) * 0.03,
-            str(val), ha="center", va="bottom",
+            bar_obj.get_x() + bar_obj.get_width() / 2, label_y,
+            str(val), ha="center", va=va,
             fontsize=11, fontweight="bold", color=TEXT_COLOR,
             fontfamily="sans-serif"
         )
@@ -103,7 +113,14 @@ def create_bar_chart(array, comparing=None, swapped=False):
         [str(i) for i in range(n)],
         fontsize=9, color=LABEL_COLOR, fontfamily="sans-serif"
     )
-    ax.set_ylim(0, max(array) * 1.25)
+
+    # Compute safe y-axis limits
+    y_bottom = min(min_val, 0) - val_range * 0.15
+    y_top = max(max_val, 0) + val_range * 0.25
+    if y_bottom == y_top:
+        y_bottom -= 1
+        y_top += 1
+    ax.set_ylim(y_bottom, y_top)
     ax.set_yticks([])
 
     # Remove spines
@@ -168,7 +185,7 @@ def create_tree_chart(positions, edges, visited_id=None, visited_so_far=None):
 
         ax.scatter(
             x, y, s=size, color=color, zorder=2,
-            edgecolors="rgba(255,255,255,0.2)", linewidths=2
+            edgecolors=(1, 1, 1, 0.2), linewidths=2
         )
         ax.text(
             x, y, str(value),
@@ -237,7 +254,7 @@ def create_graph_chart(positions, edges, visited_node=None, visited_so_far=None)
 
         ax.scatter(
             x, y, s=size, color=color, zorder=2,
-            edgecolors="rgba(255,255,255,0.2)", linewidths=2
+            edgecolors=(1, 1, 1, 0.2), linewidths=2
         )
         ax.text(
             x, y, str(label),
