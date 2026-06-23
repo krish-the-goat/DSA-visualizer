@@ -187,9 +187,10 @@ if mode == "Sorting":
 
     col_input, col_random = st.columns([4, 1])
     with col_input:
+        default_val = st.session_state.get("sort_input", "5, 2, 8, 1, 9")
         user_input = st.text_input(
             "Enter array (comma-separated numbers):",
-            value=st.session_state.get("sort_input_value", "5, 2, 8, 1, 9"),
+            value=default_val,
             key="sort_input",
         )
     with col_random:
@@ -197,7 +198,7 @@ if mode == "Sorting":
         st.write("")
         if st.button("🎲 Random", key="btn_random_sort"):
             random_arr = generate_random_array()
-            st.session_state.sort_input_value = ", ".join(str(x) for x in random_arr)
+            st.session_state.sort_input = ", ".join(str(x) for x in random_arr)
             st.rerun()
 
     if st.button("▶️ Sort", type="primary"):
